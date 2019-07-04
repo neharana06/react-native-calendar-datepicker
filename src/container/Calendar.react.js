@@ -5,22 +5,22 @@
 
 console.ignoredYellowBox = ['Warning: Overriding '];
 
-import PropTypes from 'prop-types';
-import React, { Component } from 'react';
+import React, { Component, PropTypes } from 'react';
 import {
   LayoutAnimation,
   Slider,
   View,
   Text,
   TouchableHighlight,
+  TouchableOpacity,
   StyleSheet,
+  Image
 } from 'react-native';
 
 // Component specific libraries.
 import _ from 'lodash';
 import Moment from 'moment';
 // Pure components importing.
-import ViewPropTypes from '../util/ViewPropTypes';
 import YearSelector from '../pure/YearSelector.react';
 import MonthSelector from '../pure/MonthSelector.react';
 import DaySelector from '../pure/DaySelector.react';
@@ -49,17 +49,17 @@ type Props = {
   // not be able to select the month.
   finalStage: Stage,
   // General styling properties.
-  style?: ViewPropTypes.style,
-  barView?: ViewPropTypes.style,
+  style?: View.propTypes.style,
+  barView?: View.propTypes.style,
   barText?: Text.propTypes.style,
-  stageView?: ViewPropTypes.style,
+  stageView?: View.propTypes.style,
   showArrows: boolean,
   // Styling properties for selecting the day.
-  dayHeaderView?: ViewPropTypes.style,
+  dayHeaderView?: View.propTypes.style,
   dayHeaderText?: Text.propTypes.style,
-  dayRowView?: ViewPropTypes.style,
-  dayView?: ViewPropTypes.style,
-  daySelectedView?: ViewPropTypes.style,
+  dayRowView?: View.propTypes.style,
+  dayView?: View.propTypes.style,
+  daySelectedView?: View.propTypes.style,
   dayText?: Text.propTypes.style,
   dayTodayText?: Text.propTypes.style,
   daySelectedText?: Text.propTypes.style,
@@ -92,17 +92,13 @@ export default class Calendar extends Component {
                   props.finalStage : props.startStage;
     this.state = {
       stage: stage,
-      focus: Moment(props.selected).startOf('month'),
-      monthOffset: 0,
+      focus: props.selected,
+      timeSlot: [ "6:00 AM - 7:00 AM","7:00 AM - 8:00 AM", '9:00 AM - 10:00 AM', '11:00 AM - 12:00 AM', '12:00 PM - 1:00 PM', '1:00 PM - 2:00 PM', '2:00 PM - 3:00 PM']
     }
   }
 
   _stageText = () : string => {
-    if (this.state.stage === DAY_SELECTOR) {
-      return this.state.focus.format('MMMM YYYY');
-    } else {
-      return this.state.focus.format('YYYY');
-    }
+     return this.state.focus
   }
 
   _previousStage = () : void => {
@@ -126,30 +122,20 @@ export default class Calendar extends Component {
   };
 
   _previousMonth = () : void => {
-    this.setState({monthOffset: -1});
+    this.setState({focus:Moment(this.state.focus).subtract(1, 'days').format("MMMM DD, YYYY")});
   };
 
   _nextMonth = () : void => {
-    this.setState({monthOffset: 1});
-  };
-
-  _changeFocus = (focus : Moment) : void => {
-    this.setState({focus, monthOffset: 0});
-    if (this.props.finalStage != DAY_SELECTOR &&
-        this.state.stage == this.props.finalStage) {
-      this.props.onChange && this.props.onChange(focus);
-    } else {
-      this._nextStage();
-    }
+     this.setState({focus:Moment(this.state.focus).add(1, 'days').format("MMMM DD, YYYY")});
   };
 
   render() {
     const barStyle = StyleSheet.flatten([styles.barView, this.props.barView]);
 
-    const previousMonth = Moment(this.state.focus).subtract(1, 'month');
-    const previousMonthValid = this.props.minDate.diff(Moment(previousMonth).endOf('month'), 'seconds') <= 0;
-    const nextMonth = Moment(this.state.focus).add(1, 'month');
-    const nextMonthValid = this.props.maxDate.diff(Moment(nextMonth).startOf('month'), 'seconds') >= 0;
+    const previousDay = Moment(this.state.focus).subtract(1, 'day');
+    const previousDayValid = this.props.minDate.diff(Moment(previousDay).endOf('day'), 'seconds') <= 0;
+    const nextDay = Moment(this.state.focus).add(1, 'day');
+    const nextDayValid = this.props.maxDate.diff(Moment(nextDay).startOf('day'), 'seconds') >= 0
 
     return (
       <View style={[{
@@ -157,92 +143,71 @@ export default class Calendar extends Component {
         // Wrapper view default style.
       },this.props.style]}>
         <View style={{
-          flexDirection: 'row',
+          flexDirection: 'row'
         }}>
           <View style={[styles.barView, this.props.barView]}>
-            { this.props.showArrows && this.state.stage === DAY_SELECTOR && previousMonthValid ?
+            { this.state.stage === DAY_SELECTOR && previousDayValid ?
               <TouchableHighlight
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 underlayColor={barStyle ? barStyle.backgroundColor : 'transparent'}
                 onPress={this._previousMonth}
               >
-                <Text style={this.props.barText}>{LEFT_CHEVRON}</Text>
-              </TouchableHighlight> : <View/>
+              <Image style={{marginTop:10}} source={require('./icons8-back-to.png')} />
+              </TouchableHighlight> :
+              <TouchableHighlight
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  underlayColor={barStyle ? barStyle.backgroundColor : 'transparent'}
+                >
+               <Image style={{marginTop:10}} source={require('./icons8-back-to-40.png')} />
+               </TouchableHighlight>
             }
-
+            <View style={{flexDirection:'column',alignItems:'center'}}>
+            <View style={{flexDirection:'row'}}>
+             {
+             this.state.focus === Moment().format("MMMM DD, YYYY") ?
+             <Text style={this.props.barText}>Today,
+             </Text>: <View/>
+             }
+             {
+              this.state.focus === Moment().add(1,'days').format("MMMM DD, YYYY") ?
+              <Text style={this.props.barText}>Tomorrow,
+              </Text>: <View/>
+             }
+             <Text style={this.props.barText}>{Moment(this.state.focus).format('dddd')}</Text>
+             </View>
             <TouchableHighlight
               activeOpacity={this.state.stage !== YEAR_SELECTOR ? 0.8 : 1}
               underlayColor={barStyle ? barStyle.backgroundColor : 'transparent'}
-              onPress={this._previousStage}
               style={{ alignSelf: 'center' }}
-            >
+             >
               <Text style={this.props.barText}>
-                {this._stageText()}
+              {this._stageText()}
               </Text>
             </TouchableHighlight>
-
-            { this.props.showArrows && this.state.stage === DAY_SELECTOR && nextMonthValid ?
+            </View>
+            { this.state.stage === DAY_SELECTOR && nextDayValid ?
               <TouchableHighlight
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 underlayColor={barStyle ? barStyle.backgroundColor : 'transparent'}
                 onPress={this._nextMonth}
               >
-                <Text style={this.props.barText}>{RIGHT_CHEVRON}</Text>
-              </TouchableHighlight> : <View/>
+               <Image style={{marginTop:10}} source={require('./icons8-next-page.png')} />
+              </TouchableHighlight> :
+              <TouchableHighlight
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  underlayColor={barStyle ? barStyle.backgroundColor : 'transparent'}
+               >
+              <Image style={{marginTop:10}} source={require('./icons8-next-page-40.png')} />
+              </TouchableHighlight>
             }
           </View>
         </View>
-        <View
-          style={[styles.stageWrapper, this.props.stageView]}>
-          {
-            this.state.stage === DAY_SELECTOR ?
-            <DaySelector
-              focus={this.state.focus}
-              selected={this.props.selected}
-              onFocus={this._changeFocus}
-              onChange={(date) => this.props.onChange && this.props.onChange(date)}
-              monthOffset={this.state.monthOffset}
-              minDate={this.props.minDate}
-              maxDate={this.props.maxDate}
-              // Control properties
-              slideThreshold={this.props.slideThreshold}
-              // Transfer the corresponding styling properties.
-              dayHeaderView={this.props.dayHeaderView}
-              dayHeaderText={this.props.dayHeaderText}
-              dayRowView={this.props.dayRowView}
-              dayView={this.props.dayView}
-              daySelectedView={this.props.daySelectedView}
-              dayText={this.props.dayText}
-              dayTodayText={this.props.dayTodayText}
-              daySelectedText={this.props.daySelectedText}
-              dayDisabledText={this.props.dayDisabledText}
-              /> :
-            this.state.stage === MONTH_SELECTOR ?
-            <MonthSelector
-              focus={this.state.focus}
-              selected={this.props.selected}
-              onFocus={this._changeFocus}
-              minDate={this.props.minDate}
-              maxDate={this.props.maxDate}
-              // Styling properties
-              monthText={this.props.monthText}
-              monthDisabledText={this.props.monthDisabledText}
-              selectedText={this.props.monthSelectedText}
-              /> :
-            this.state.stage === YEAR_SELECTOR ?
-            <YearSelector
-              focus={this.state.focus}
-              onFocus={this._changeFocus}
-              minDate={this.props.minDate}
-              maxDate={this.props.maxDate}
-              // Styling properties
-              minimumTrackTintColor={this.props.yearMinTintColor}
-              maximumTrackTintColor={this.props.yearMaxTintColor}
-              yearSlider={this.props.yearSlider}
-              yearText={this.props.yearText}
-              /> :
-            null
-          }
+        <View style={{ flexDirection:'column', alignItems:'center', marginTop:5}}>
+        {
+           this.state.timeSlot.map((data,index) => (
+                <TouchableOpacity key={index} onPress={ () => this.props.selectDateTimeSlot({'time':data, 'date':this.state.focus}) }><Text style={{fontSize:16,marginTop:15,fontFamily:'Arial'}}>{data}</Text></TouchableOpacity>
+            ))
+        }
         </View>
       </View>
     );
@@ -260,9 +225,18 @@ const styles = StyleSheet.create({
   barView: {
     flexGrow: 1,
     flexDirection: 'row',
-    padding: 5,
+    padding: 10,
     justifyContent: 'space-between',
     alignItems: 'center',
+    elevation: 3,
+    marginTop:20,
+    shadowColor: "#000",
+    shadowOffset: {
+   	 width: 0,
+   	 height: 1,
+    },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22
   },
   nextStage: {
     padding: 5,
@@ -271,5 +245,5 @@ const styles = StyleSheet.create({
   stageWrapper: {
     padding: 5,
     overflow: 'hidden',
-  },
+  }
 });
